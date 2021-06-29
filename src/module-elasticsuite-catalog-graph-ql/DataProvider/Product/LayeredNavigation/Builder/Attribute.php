@@ -17,6 +17,7 @@ namespace Smile\ElasticsuiteCatalogGraphQl\DataProvider\Product\LayeredNavigatio
 use Magento\Catalog\Model\Product\Attribute\Repository as AttributeRepository;
 use Magento\CatalogGraphQl\DataProvider\Product\LayeredNavigation\Formatter\LayerFormatter;
 use Magento\CatalogGraphQl\DataProvider\Product\LayeredNavigation\LayerBuilderInterface;
+use Magento\Config\Model\Config\Source\Yesno;
 use Magento\Framework\Api\Search\AggregationInterface;
 use Magento\Framework\Api\Search\BucketInterface;
 use Smile\ElasticsuiteCore\Helper\Mapping;
@@ -48,6 +49,8 @@ class Attribute implements LayerBuilderInterface
         Category::CATEGORY_BUCKET,
     ];
 
+    private Yesno $yesNo;
+
     /**
      * @param LayerFormatter      $layerFormatter      Layer Formatter
      * @param AttributeRepository $attributeRepository Attribute Repository
@@ -56,11 +59,13 @@ class Attribute implements LayerBuilderInterface
     public function __construct(
         LayerFormatter $layerFormatter,
         AttributeRepository $attributeRepository,
+        Yesno $yesNo,
         $bucketNameFilter = []
     ) {
         $this->layerFormatter      = $layerFormatter;
         $this->bucketNameFilter    = \array_merge($this->bucketNameFilter, $bucketNameFilter);
         $this->attributeRepository = $attributeRepository;
+        $this->yesNo = $yesNo;
     }
 
     /**
@@ -105,7 +110,7 @@ class Attribute implements LayerBuilderInterface
             foreach ($bucket->getValues() as $value) {
                 $metrics                             = $value->getMetrics();
                 $result[$attributeCode]['options'][] = $this->layerFormatter->buildItem(
-                    $attribute['options'][$value->getValue()] ?? $value->getValue(),
+                    $this->getOptionLabel($attribute, $value),
                     $value->getValue(),
                     $metrics['count']
                 );
@@ -115,6 +120,15 @@ class Attribute implements LayerBuilderInterface
         return $result;
     }
 
+    private function getOptionLabel($attribute, $value): string
+    {
+        if ($attribute->getFrontendInput() === 'boolean') {
+            $yesNoOptions = $this->yesNo->toArray();
+            return $yesNoOptions[$value->getValue()];
+        }
+
+        return $attribute['options'][$value->getValue()] ?? $value->getValue();
+    }
     /**
      * Get attribute buckets excluding specified bucket names
      *
